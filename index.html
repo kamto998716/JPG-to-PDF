@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshots to PDF</title>
+    <!-- Include jsPDF library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- CSS will be in Part 2 -->
+</head>
+<body>
+    <h1>Screenshots to PDF Converter</h1>
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ul>
+            <li>Select images using the button below or drag and drop them into the box</li>
+            <li>Drag and drop images to reorder them if needed</li>
+            <li>The order shown will be the order in the PDF (top-left to bottom-right)</li>
+            <li>Hover over an image to see a larger preview</li>
+            <li>Click the red X to remove an image</li>
+            <li>Click the blue ↔ to toggle inline view for individual images</li>
+            <li>Use the "Toggle View" button to switch between grid and inline view for all images</li>
+        </ul>
+    </div>
+    
+    <div id="upload-container">
+        <div class="file-input-container">
+            <div class="file-input-button">Select Images</div>
+            <input type="file" id="image-input" accept="image/*" multiple>
+        </div>
+        <div>
+            <input type="text" id="pdf-name" placeholder="Enter PDF filename" value="input your file name here">
+            <button id="finish-btn" disabled>Create PDF</button>
+        </div>
+        <div>
+            <button id="clean-btn" disabled>Clear All</button>
+        </div>
+        <div>
+            <button id="view-toggle-btn" class="view-toggle-btn" disabled>Toggle View</button>
+        </div>
+        <div>
+            <button id="reverse-btn" disabled>Reverse Order</button>
+        </div>
+    </div>
+    
+    <div id="preview-area" class="dropzone">
+        <p id="empty-message" style="text-align: center; color: #999;">Drag and drop images here or use the select button above</p>
+    </div>
+    
+    <div id="status"></div>
+    
+    <!-- JavaScript will be in Part 3 -->
+</body>
+</html>
+<script>
+    // Store uploaded images
+    let images = [];
+    let isGridView = true; // Track the current view mode
+    
+    // DOM elements
+    const imageInput = document.getElementById('image-input');
+    const previewArea = document.getElementById('preview-area');
+    const finishBtn = document.getElementById('finish-btn');
+    const pdfNameInput = document.getElementById('pdf-name');
+    const statusDiv = document.getElementById('status');
+    const emptyMessage = document.getElementById('empty-message');
+    const cleanBtn = document.getElementById('clean-btn');
+    const viewToggleBtn = document.getElementById('view-toggle-btn');
+    
+    // Update status with optional class
+    function updateStatus(message, className = '') {
+        statusDiv.textContent = message;
+        statusDiv.className = className;
+        console.log(message); // Also log to console for debugging
+    }
+    
+    // Process files automatically when selected
+    imageInput.addEventListener('change', () => {
+        if (imageInput.files.length > 0) {
+            updateStatus(`Loading ${imageInput.files.length} images...`, 'loading');
+            
+            let loadedCount = 0;
+            for (let i = 0; i < imageInput.files.length; i++) {
+                const file = imageInput.files[i];
+                if (file.type.match('image.*')) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        images.push({
+                            data: e.target.result,
+                            name: file.name
+                        });
+                        
+                        loadedCount++;
+                        if (loadedCount === imageInput.files.length) {
+                            updateStatus(`${images.length} images loaded successfully.`, 'success');
+                        }
+                        
+                        renderPreviews();
+                    };
+                    
+                    reader.onerror = function() {
+                        updateStatus(`Error loading image: ${file.name}`, 'error');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            }
+            // Reset file input
+            imageInput.value = '';
+        }
+    });
+
+    // Clear all images
+    cleanBtn.addEventListener('click', () => {
+        images = [];
+        renderPreviews();
+        updateStatus('All images cleared.', 'success');
+    });
+    
+    // Toggle view between grid and inline
+    viewToggleBtn.addEventListener('click', () => {
+        isGridView = !isGridView;
+        if (isGridView) {
+            previewArea.classList.remove('inline-view');
+            viewToggleBtn.textContent = 'Switch to Inline View';
+        } else {
+            previewArea.classList.add('inline-view');
+            viewToggleBtn.textContent = 'Switch to Grid View';
+        }
+    });
+    
+    // Render image previews
+    function renderPreviews() {
+        previewArea.innerHTML = '';
+        
+        // Show/hide empty message
+        if (images.length === 0) {
+            previewArea.appendChild(emptyMessage);
+            finishBtn.disabled = true;
+            cleanBtn.disabled = true;
+            viewToggleBtn.disabled = true;
+            return;
+        }
+        
+        // Enable buttons since we have images
+        finishBtn.disabled = false;
+        cleanBtn.disabled = false;
+        viewToggleBtn.disabled = false;
+        reverseBtn.disabled = images.length < 2; // Only enable if we have at least 2 images
+        
+        images.forEach((image, index) => {
+            const container = document.createElement('div');
+            container.className = 'preview-container';
+            container.setAttribute('draggable', 'true');
+            container.dataset.index = index;
+            
+            const img = document.createElement('img');
+            img.src = image.data;
+            img.className = 'preview-img';
+            img.title = image.name;
+            container.appendChild(img);
+            
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                images.splice(index, 1);
+                renderPreviews();
+            });
+            container.appendChild(deleteBtn);
+            
+            // Add toggle view button for individual images
+            const toggleViewBtn = document.createElement('div');
+            toggleViewBtn.className = 'toggle-view-btn';
+            toggleViewBtn.textContent = '↔';
+            toggleViewBtn.title = 'Toggle inline view';
+            toggleViewBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                container.classList.toggle('inline-single');
+            });
+            container.appendChild(toggleViewBtn);
+            
+            // Add page number indicator
+            const pageNumber = document.createElement('div');
+            pageNumber.className = 'page-number';
+            pageNumber.textContent = `Page ${index + 1}`;
+            container.appendChild(pageNumber);
+            
+            // Add drag event listeners
+            container.addEventListener('dragstart', handleDragStart);
+            container.addEventListener('dragover', handleDragOver);
+            container.addEventListener('dragenter', handleDragEnter);
+            container.addEventListener('dragleave', handleDragLeave);
+            container.addEventListener('drop', handleDrop);
+            container.addEventListener('dragend', handleDragEnd);
+            
+            previewArea.appendChild(container);
+        });
+    }
+    
+    // Drag and drop functionality for reordering
+    let draggedItem = null;
+    
+    function handleDragStart(e) {
+        draggedItem = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+    
+    function handleDragEnter(e) {
+        this.classList.add('drag-over');
+    }
+    
+    function handleDragLeave(e) {
+        this.classList.remove('drag-over');
+    }
+    
+    function handleDrop(e) {
+        e.stopPropagation();
+        
+        if (draggedItem !== this) {
+            const fromIndex = parseInt(draggedItem.dataset.index);
+            const toIndex = parseInt(this.dataset.index);
+            
+            // Reorder the images array
+            const movedItem = images.splice(fromIndex, 1)[0];
+            images.splice(toIndex, 0, movedItem);
+            
+            renderPreviews();
+        }
+        
+        return false;
+    }
+    
+    function handleDragEnd(e) {
+        const containers = document.querySelectorAll('.preview-container');
+        containers.forEach(container => {
+            container.classList.remove('drag-over');
+            container.classList.remove('dragging');
+        });
+    }
+    
+    // Create PDF from images
+    finishBtn.addEventListener('click', () => {
+        if (images.length === 0) {
+            updateStatus('No images to convert!', 'error');
+            return;
+        }
+        
+        updateStatus('Creating PDF...', 'loading');
+        
+        // Use jsPDF to create PDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        let processedCount = 0;
+        
+        // Function to add image to PDF
+        function addImageToPDF(index) {
+            if (index >= images.length) {
+                // All images processed, save the PDF
+                let filename = pdfNameInput.value.trim();
+                if (!filename) filename = 'screenshots';
+                if (!filename.toLowerCase().endsWith('.pdf')) filename += '.pdf';
+                
+                doc.save(filename);
+                updateStatus(`PDF created successfully: ${filename}`, 'success');
+                return;
+            }
+            
+            const img = new Image();
+            img.src = images[index].data;
+            
+            img.onload = function() {
+                // If not the first page, add a new page
+                if (index > 0) {
+                    doc.addPage();
+                }
+                
+                // Calculate dimensions to fit the image on the page
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                
+                let imgWidth = img.width;
+                let imgHeight = img.height;
+                
+                // Scale the image to fit the page
+                const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+                imgWidth *= ratio;
+                imgHeight *= ratio;
+                
+                // Center the image on the page
+                const x = (pageWidth - imgWidth) / 2;
+                const y = (pageHeight - imgHeight) / 2;
+                
+                // Add the image to the PDF
+                doc.addImage(img, 'JPEG', x, y, imgWidth, imgHeight);
+                
+                processedCount++;
+                updateStatus(`Processing image ${processedCount} of ${images.length}...`, 'loading');
+                
+                // Process the next image
+                addImageToPDF(index + 1);
+            };
+            
+            img.onerror = function() {
+                updateStatus(`Error processing image ${index + 1}`, 'error');
+                // Continue with the next image
+                addImageToPDF(index + 1);
+            };
+        }
+        
+        // Start processing images
+        addImageToPDF(0);
+    });
+
+    // Get the reverse button element
+    const reverseBtn = document.getElementById('reverse-btn');
+
+    // Add event listener for the reverse button
+    reverseBtn.addEventListener('click', () => {
+        if (images.length > 1) {
+            // Reverse the order of the images array
+            images.reverse();
+            renderPreviews();
+            updateStatus('Image order reversed.', 'success');
+        } else {
+            updateStatus('Need at least two images to reverse order.', 'note');
+        }
+    });
+
+    
+    
+    // Drag and drop for file upload
+    previewArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        previewArea.classList.add('drag-over');
+    });
+    
+    previewArea.addEventListener('dragleave', () => {
+        previewArea.classList.remove('drag-over');
+    });
+    
+    previewArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        previewArea.classList.remove('drag-over');
+        
+        if (e.dataTransfer.files.length > 0) {
+            updateStatus(`Loading ${e.dataTransfer.files.length} images...`, 'loading');
+            
+            let loadedCount = 0;
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                const file = e.dataTransfer.files[i];
+                if (file.type.match('image.*')) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        images.push({
+                            data: e.target.result,
+                            name: file.name
+                        });
+                        
+                        loadedCount++;
+                        if (loadedCount === e.dataTransfer.files.length) {
+                            updateStatus(`${images.length} images loaded successfully.`, 'success');
+                        }
+                        
+                        renderPreviews();
+                    };
+                    
+                    reader.onerror = function() {
+                        updateStatus(`Error loading image: ${file.name}`, 'error');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+    });
+    
+    // Initialize view toggle button text
+    viewToggleBtn.textContent = 'Switch to Inline View';
+</script>
+<style>
+    /* Base styles */
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 30px;
+        color: #000;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Instructions section */
+    .instructions {
+        background-color: #f9f9f9;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin: 20px 0 30px;
+        border-left: 4px solid #4CAF50;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .instructions h3 {
+        margin-top: 0;
+        font-size: 1.5rem;
+    }
+
+    .instructions ul {
+        padding-left: 20px;
+    }
+
+    .instructions li {
+        margin-bottom: 10px;
+        position: relative;
+    }
+
+    /* Upload container and buttons */
+    #upload-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        margin: 25px 0;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Common button styles */
+    button, .file-input-button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+        text-align: center;
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    button:hover, .file-input-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    button:active, .file-input-button:active {
+        transform: translateY(0);
+    }
+
+    button:disabled {
+        background-color: #e0e0e0;
+        color: #999;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Input styling */
+    #pdf-name {
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        width: 200px;
+        transition: border-color 0.3s;
+    }
+
+    #pdf-name:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    }
+
+    /* File input container */
+    .file-input-container {
+        position: relative;
+        display: inline-block;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .file-input-container input[type="file"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+        font-size: 100px;
+    }
+
+    .file-input-button {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    /* Preview area */
+    #preview-area {
+        width: 90%;
+        margin: 20px auto;
+        min-height: 250px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #999;
+        font-size: 18px;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    #preview-area.drag-over {
+        border-color: #4CAF50;
+        background-color: rgba(76, 175, 80, 0.05);
+    }
+
+    #empty-message {
+        color: #999;
+        font-size: 18px;
+        text-align: center;
+        width: 100%;
+    }
+
+    /* Preview containers and images */
+    .preview-container {
+        display: inline-block;
+        position: relative;
+        margin: 12px;
+        cursor: move;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .preview-container:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-container.dragging {
+        opacity: 0.5;
+        transform: scale(0.95);
+        z-index: 1000;
+    }
+
+    .preview-container.drag-over {
+        border-color: #4CAF50;
+    }
+
+    .preview-img {
+        max-width: 200px;
+        max-height: 200px;
+        object-fit: contain;
+        border-radius: 6px;
+        padding: 5px;
+        background-color: white;
+        transition: transform 0.3s ease;
+    }
+
+    .preview-img:hover {
+        transform: scale(1.5);
+        z-index: 10;
+    }
+
+    /* Control buttons */
+    .delete-btn, .toggle-view-btn {
+        position: absolute;
+        top: -10px;
+        width: 28px;
+        height: 28px;
+        color: white;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 28px;
+        cursor: pointer;
+        font-weight: bold;
+        z-index: 20;
+        font-size: 16px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .delete-btn {
+        right: -10px;
+        background-color: #ff5252;
+    }
+
+    .toggle-view-btn {
+        right: 20px;
+        background-color: #2196F3;
+    }
+
+    /* Page number */
+    .page-number {
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        z-index: 5;
+    }
+
+    /* Status messages */
+    #status {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 6px;
+        font-weight: 500;
+    }
+
+    .loading {
+        color: #ff9800;
+        background-color: rgba(255, 152, 0, 0.1);
+    }
+
+    .success {
+        color: #4CAF50;
+        background-color: rgba(76, 175, 80, 0.1);
+    }
+
+    .error {
+        color: #f44336;
+        background-color: rgba(244, 67, 54, 0.1);
+    }
+
+    .note {
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 5px;
+    }
+
+    /* View modes */
+    .inline-view .preview-container {
+        display: block;
+        width: 100%;
+        margin: 15px 0;
+    }
+
+    .inline-view .preview-img,
+    .preview-container.inline-single .preview-img {
+        max-width: 100%;
+        max-height: 400px;
+        display: block;
+        margin: 0 auto;
+    }
+
+    .inline-view .preview-img:hover,
+    .preview-container.inline-single .preview-img:hover {
+        transform: none;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        #upload-container {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        #pdf-name {
+            width: 100%;
+        }
+        
+        button, .file-input-button {
+            width: 100%;
+        }
+    }
+</style>
