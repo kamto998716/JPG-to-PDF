@@ -391,7 +391,291 @@
     viewToggleBtn.textContent = 'Switch to Inline View';
 </script>
 <style>
-    /* Base styles */
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .preview-container {
+        display: inline-block;
+        position: relative;
+        margin: 10px;
+        cursor: move; /* Show move cursor */
+        border: 2px solid transparent;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .preview-container.dragging {
+        opacity: 0.5;
+        transform: scale(0.95);
+        z-index: 1000;
+    }
+    .preview-container.drag-over {
+        border-color: #4CAF50;
+    }
+    .preview-img {
+        max-width: 200px;
+        max-height: 200px;
+        border: 1px solid #ddd;
+        padding: 5px;
+        transition: transform 0.3s ease;
+    }
+    .preview-img:hover {
+        transform: scale(1.5);
+        z-index: 10;
+    }
+    .delete-btn {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        background-color: red;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        text-align: center;
+        line-height: 24px;
+        cursor: pointer;
+        font-weight: bold;
+        z-index: 20;
+    }
+    .page-number {
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 12px;
+        z-index: 5;
+    }
+    #upload-container {
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px; /* Space between the buttons */
+    }
+    #preview-area {
+        margin: 20px 0;
+        min-height: 220px;
+        border: 2px dashed #ccc;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    #preview-area.drag-over {
+        border-color: #4CAF50;
+        background-color: rgba(76, 175, 80, 0.1);
+    }
+    button {
+        padding: 10px 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    #pdf-name {
+        padding: 8px;
+        margin-right: 10px;
+        width: 200px;
+    }
+    #status {
+        margin-top: 15px;
+        color: #555;
+    }
+    .loading {
+        color: #ff9900;
+    }
+    .success {
+        color: #4CAF50;
+    }
+    .error {
+        color: #f44336;
+    }
+    .note {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+    .instructions {
+        background-color: #f9f9f9;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        border-left: 4px solid #4CAF50;
+    }
+    .file-input-container {
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+        flex-shrink: 0; /* Prevents the button from shrinking */
+    }
+    .file-input-container input[type="file"] {
+        font-size: 100px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .file-input-button {
+        display: inline-block;
+        padding: 10px 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    /* Common button styles */
+    .file-input-button, #clean-btn, #finish-btn {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Hover effect for all buttons */
+    .file-input-button:hover, #clean-btn:hover, #finish-btn:hover {
+        transform: scale(1.05); /* Slightly increase size by 5% */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Optional: add a subtle shadow */
+        cursor: pointer;
+    }
+
+    /* Active state (when clicked) */
+    .file-input-button:active, #clean-btn:active, #finish-btn:active, .file-input-container {
+        transform: scale(0.98); /* Slightly decrease size to give "pressed" effect */
+    }
+    
+    /* Style for the file input container */
+    .file-input-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    /* Style for the file input button */
+    .file-input-button {
+        padding: 10px 20px;
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Position the actual file input over the button but make it invisible */
+    .file-input-container input[type="file"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    /* This is the key part - apply hover effect to the button when hovering over the container */
+    .file-input-container:hover .file-input-button {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Active state for the button */
+    .file-input-container:active .file-input-button {
+        transform: scale(0.98);
+    }
+
+    /* View toggle button styles */
+    .view-toggle-btn {
+        padding: 10px 15px;
+        background-color: #3f51b5;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .view-toggle-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .view-toggle-btn:active {
+        transform: scale(0.98);
+    }
+
+    .inline-view .preview-container {
+        display: block;
+        width: 100%;
+        margin: 15px 0;
+    }
+
+    .inline-view .preview-img {
+        max-width: 100%;
+        max-height: 400px;
+        display: block;
+        margin: 0 auto;
+    }
+
+    .inline-view .preview-img:hover {
+        transform: none;
+    }
+
+    .toggle-view-btn {
+        position: absolute;
+        top: -10px;
+        right: 20px;
+        background-color: #3f51b5;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        text-align: center;
+        line-height: 24px;
+        cursor: pointer;
+        font-weight: bold;
+        z-index: 20;
+    }
+
+    .preview-container.inline-single .preview-img {
+        max-width: 100%;
+        max-height: 400px;
+    }
+
+    .preview-container.inline-single .preview-img:hover {
+        transform: none;
+    }
+    #reverse-btn {
+        padding: 10px 15px;
+        background-color: #ff9800; /* Orange color to distinguish it */
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 4px;
+    }
+
+    #reverse-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #reverse-btn:active {
+        transform: scale(0.98);
+    }
+
+    #reverse-btn:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    /* Overall layout improvements */
     body {
         font-family: 'Segoe UI', Arial, sans-serif;
         max-width: 1200px;
@@ -406,21 +690,15 @@
         font-weight: bold;
         margin-bottom: 30px;
         color: #000;
-        width: 90%;
-        margin-left: auto;
-        margin-right: auto;
     }
 
-    /* Instructions section */
+    /* Instructions section styling */
     .instructions {
         background-color: #f9f9f9;
         padding: 15px 20px;
         border-radius: 8px;
         margin: 20px 0 30px;
         border-left: 4px solid #4CAF50;
-        width: 90%;
-        margin-left: auto;
-        margin-right: auto;
     }
 
     .instructions h3 {
@@ -437,19 +715,32 @@
         position: relative;
     }
 
-    /* Upload container and buttons */
+    /* Button container layout */
     #upload-container {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 15px;
         margin: 25px 0;
-        width: 90%;
-        margin-left: auto;
-        margin-right: auto;
     }
 
-    /* Common button styles */
+    /* Input field styling */
+    #pdf-name {
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        width: 200px;
+        transition: border-color 0.3s;
+    }
+
+    #pdf-name:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    }
+
+    /* Button styling to match screenshot */
     button, .file-input-button {
         padding: 12px 20px;
         border: none;
@@ -460,6 +751,29 @@
         transition: all 0.3s ease;
         min-width: 120px;
         text-align: center;
+    }
+
+    .file-input-button {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    #finish-btn, #create-pdf-btn {
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    #clean-btn, #clear-all-btn {
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    #view-toggle-btn {
+        background-color: #e0e0e0;
+        color: #333;
+    }
+
+    #reverse-btn {
         background-color: #e0e0e0;
         color: #333;
     }
@@ -481,51 +795,9 @@
         box-shadow: none;
     }
 
-    /* Input styling */
-    #pdf-name {
-        padding: 12px 15px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        font-size: 16px;
-        width: 200px;
-        transition: border-color 0.3s;
-    }
-
-    #pdf-name:focus {
-        outline: none;
-        border-color: #4CAF50;
-        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-    }
-
-    /* File input container */
-    .file-input-container {
-        position: relative;
-        display: inline-block;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
-
-    .file-input-container input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-        z-index: 2;
-        font-size: 100px;
-    }
-
-    .file-input-button {
-        background-color: #4CAF50;
-        color: white;
-    }
-
-    /* Preview area */
+    /* Drop zone styling */
     #preview-area {
-        width: 90%;
-        margin: 20px auto;
+        margin: 20px 0;
         min-height: 250px;
         border: 2px dashed #ccc;
         border-radius: 8px;
@@ -536,7 +808,6 @@
         color: #999;
         font-size: 18px;
         transition: all 0.3s ease;
-        box-sizing: border-box;
     }
 
     #preview-area.drag-over {
@@ -551,32 +822,13 @@
         width: 100%;
     }
 
-    /* Preview containers and images */
+    /* Image preview styling */
     .preview-container {
-        display: inline-block;
-        position: relative;
         margin: 12px;
-        cursor: move;
-        border: 2px solid transparent;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         transition: all 0.3s ease;
-    }
-
-    .preview-container:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-    }
-
-    .preview-container.dragging {
-        opacity: 0.5;
-        transform: scale(0.95);
-        z-index: 1000;
-    }
-
-    .preview-container.drag-over {
-        border-color: #4CAF50;
     }
 
     .preview-img {
@@ -586,55 +838,39 @@
         border-radius: 6px;
         padding: 5px;
         background-color: white;
-        transition: transform 0.3s ease;
     }
 
-    .preview-img:hover {
-        transform: scale(1.5);
-        z-index: 10;
-    }
-
-    /* Control buttons */
-    .delete-btn, .toggle-view-btn {
-        position: absolute;
-        top: -10px;
-        width: 28px;
-        height: 28px;
-        color: white;
-        border-radius: 50%;
-        text-align: center;
-        line-height: 28px;
-        cursor: pointer;
-        font-weight: bold;
-        z-index: 20;
-        font-size: 16px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    .preview-container:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
     }
 
     .delete-btn {
-        right: -10px;
         background-color: #ff5252;
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        line-height: 28px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     }
 
     .toggle-view-btn {
-        right: 20px;
         background-color: #2196F3;
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        line-height: 28px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     }
 
-    /* Page number */
     .page-number {
-        position: absolute;
-        bottom: 5px;
-        left: 5px;
         background-color: rgba(0, 0, 0, 0.7);
-        color: white;
         padding: 3px 8px;
-        border-radius: 12px;
         font-size: 12px;
-        z-index: 5;
+        border-radius: 12px;
     }
 
-    /* Status messages */
+    /* Status message styling */
     #status {
         margin-top: 20px;
         padding: 10px;
@@ -645,42 +881,22 @@
     .loading {
         color: #ff9800;
         background-color: rgba(255, 152, 0, 0.1);
+        padding: 10px;
+        border-radius: 6px;
     }
 
     .success {
         color: #4CAF50;
         background-color: rgba(76, 175, 80, 0.1);
+        padding: 10px;
+        border-radius: 6px;
     }
 
     .error {
         color: #f44336;
         background-color: rgba(244, 67, 54, 0.1);
-    }
-
-    .note {
-        color: #666;
-        font-size: 0.9em;
-        margin-top: 5px;
-    }
-
-    /* View modes */
-    .inline-view .preview-container {
-        display: block;
-        width: 100%;
-        margin: 15px 0;
-    }
-
-    .inline-view .preview-img,
-    .preview-container.inline-single .preview-img {
-        max-width: 100%;
-        max-height: 400px;
-        display: block;
-        margin: 0 auto;
-    }
-
-    .inline-view .preview-img:hover,
-    .preview-container.inline-single .preview-img:hover {
-        transform: none;
+        padding: 10px;
+        border-radius: 6px;
     }
 
     /* Responsive design */
@@ -698,4 +914,64 @@
             width: 100%;
         }
     }
+    /* Container width adjustment */
+    .container, 
+    #main-container,
+    .app-container {
+        width: 90%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* For specific elements that need the 90% width */
+    #upload-container,
+    #preview-area,
+    .instructions,
+    h1 {
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Ensure the preview area maintains proper spacing */
+    #preview-area {
+        box-sizing: border-box;
+        min-height: 250px;
+    }
+    /* Specific styling for the reverse button */
+    #reverse-btn {
+        background-color: #e0e0e0;
+        color: #333;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+        text-align: center;
+    }
+
+    #reverse-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: #d5d5d5; /* Slightly darker on hover */
+    }
+
+    #reverse-btn:active {
+        transform: translateY(0);
+    }
+
+    #reverse-btn:disabled {
+        background-color: #e0e0e0;
+        color: #999;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+
+
 </style>
